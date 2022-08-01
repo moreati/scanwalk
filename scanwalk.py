@@ -17,6 +17,9 @@ class FakeDirEntry(os.PathLike):
     def name(self) -> AnyStr:
         return os.path.basename(self.path)
 
+    def inode(self) -> int:
+        return self.stat(follow_symlinks=False).st_inode
+
     def is_dir(self, *, follow_symlinks:bool=True) -> bool:
         return stat.S_ISDIR(self.stat(follow_symlinks=follow_symlinks).st_mode)
 

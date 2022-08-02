@@ -46,19 +46,55 @@ Notable features and differences between `scanwalk.walk()` and `os.walk()`
 | Allocations | Builds intermediate lists            | Direct from `os.scandir()`                         |
 | Performance | 1.0x                                 | 1.1 - 1.2x faster                                  |
 
-Installation
-------------
+## Installation
 
 ```sh
 python -m pip install scanwalk
 ```
 
-Requirements
-------------
+## Requirements
 
-- Python 3.6+
+- Python 3.7+
 
-License
--------
+## License
 
 MIT
+
+## Questions and Answers
+
+### What's wrong with `os.walk()`?
+
+`scanwalk.walk()` isn't better or worse then `os.walk()`, each has tradeoffs.
+`os.walk()` is fine for most use cases, if you're happy with it then carry on.
+
+### Why use `scanwalk`?
+`scanwalk.walk()` eeks out a little more speed (10-20% in an adhoc benchmark).
+It doesn't require nested for loops, so code is easier to read and write.
+In particular list comprehensions  and generator expressions become simpler.
+
+### Why not use `scanwalk`?
+`scanwalk` is still alpha, mostly untested, and almost entirely undocumented.
+It only supports newer Pythons, on platforms with a working `os.scandir()`.
+
+`scanwalk.walk()` lacks features compared to `os.walk()`
+- entries aren't sorted, they arrive in an undefined order
+- there's no control over traversal order (e.g. depth first, breadth first)
+- there's no way to skip directories
+
+## Related work
+
+- [`scandir`](https://pypi.org/project/scandir/) - backport of `os.scandir()`
+  for Python 2.7 and 3.4
+
+## TODO
+
+- Expose directory skip mechanism, probably `generator.send()`
+- Implement context manager protocol, similar to `os.scandir()`
+- Documentation
+- Tests
+- Continuous Integration
+- Coverage
+- Code quality checks (MyPy, flake8, etc.)
+- `scanwalk.copytree()`?
+- `scanwalk.DirEntry.depth`?
+- Linux io_uring support?

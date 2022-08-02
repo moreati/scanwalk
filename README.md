@@ -36,15 +36,15 @@ data/demo/adir/anotherfile anotherfile False True
 
 Notable features and differences between `scanwalk.walk()` and `os.walk()`
 
-- `scanwalk` generates a flat stream of `DirEntry` objects.
-  Nested loops aren't needed.
-- `scanwalk` doesn't sort entries.
-  Directories and files are intermingled (within a given parent directory).
-- `scanwalk` descends directories as it encounters them.
-  It's neither depth first or breadth first. `os.walk()` supports both.
-- `scanwalk` doesn't build intermediate lists
-- `scanwalk` doesn't need an `onerror()` callback.
-- `scanwalk` can be 10-20% faster.
+|             | `os.walk()`                          | `scanwalk.walk()`                                  |
+|-------------|--------------------------------------|----------------------------------------------------|
+| Yields      | `(dirpath, dirnames, filenames)`     | `DirEntry` objects                                 |
+| Consumers   | Nested `for` loops                   | `for` loop, generator expression, or comprehension |
+| Order       | Sorted, directories & files seperate | Unsorted, directories & files intermingled         |
+| Traversal   | Depth first or breadth first         | Semi depth first, directories traversed on arrival |
+| Exceptions  | `onerror()` callback                 | `try`/`except` block                               |
+| Allocations | Builds intermediate lists            | Direct from `os.scandir()`                         |
+| Performance | 1.0x                                 | 1.1 - 1.2x faster                                  |
 
 Installation
 ------------

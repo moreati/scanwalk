@@ -2,4 +2,15 @@
 
 import setuptools
 
-setuptools.setup()
+setuptools.setup(
+    ext_modules=[
+        setuptools.Extension(
+            name='_scanwalk',
+            sources=[
+                #'_scanwalk.h',
+                #'_scanwalk.c.h',
+                '_scanwalk.c',
+            ],
+        ),
+    ],
+)

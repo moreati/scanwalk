@@ -44,10 +44,12 @@ Notable features and differences between `scanwalk.walk()` and `os.walk()`
 |-------------|--------------------------------------|----------------------------------------------------|
 | Yields      | `(dirpath, dirnames, filenames)`     | `DirEntry` objects                                 |
 | Consumers   | Nested `for` loops                   | `for` loop, generator expression, or comprehension |
-| Order       | Sorted, directories & files seperate | Unsorted, directories & files intermingled         |
+| Grouping    | Directories & files seperated        | Directories & files intermingled                   |
 | Traversal   | Depth first or breadth first         | Semi depth first, directories traversed on arrival |
 | Exceptions  | `onerror()` callback                 | `try`/`except` block                               |
 | Allocations | Builds intermediate lists            | Direct from `os.scandir()`                         |
+| Maturity    | Mature                               | Alpha                                              |
+| Tests       | Thorough automated unit tests        | None                                               |
 | Performance | 1.0x                                 | 1.1 - 1.2x faster                                  |
 
 ## Installation
@@ -81,9 +83,9 @@ In particular list comprehensions  and generator expressions become simpler.
 It only supports newer Pythons, on platforms with a working `os.scandir()`.
 
 `scanwalk.walk()` lacks features compared to `os.walk()`
-- entries aren't sorted, they arrive in an undefined order
-- there's no control over traversal order (e.g. depth first, breadth first)
-- there's no way to skip directories
+- directories and files are intermingled
+- Traversal is always semi depth-first (e.g. depth first, breadth first)
+- there's no way to skip directories (WIP)
 
 ## Related work
 

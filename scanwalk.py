@@ -4,6 +4,7 @@ import os
 import stat
 from typing import AnyStr
 from typing import Generator
+from typing import Union
 
 
 class FakeDirEntry(os.PathLike):
@@ -39,7 +40,7 @@ class FakeDirEntry(os.PathLike):
         return f'<{self.__class__.__name__} {self.path!r}>'
 
 
-WalkGenerator = Generator[os.DirEntry|FakeDirEntry, None, None]
+WalkGenerator = Generator[Union[os.DirEntry, FakeDirEntry], None, None]
 
 
 def walk(top:os.PathLike, *, follow_symlinks:bool=False) -> WalkGenerator:
@@ -69,6 +70,5 @@ def _walk(path:os.PathLike, *, follow_symlinks:bool=False) -> WalkGenerator:
 
 __all__ = (
     FakeDirEntry.__name__,
-    WalkGenerator.__name__,
     walk.__name__,
 )

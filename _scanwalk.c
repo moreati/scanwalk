@@ -892,187 +892,6 @@ dir_fd_unavailable(PyObject *o, void *p)
     return 1;
 }
 
-static int
-fd_specified(const char *function_name, int fd)
-{
-    if (fd == -1)
-        return 0;
-
-    argument_unavailable_error(function_name, "fd");
-    return 1;
-}
-
-static int
-follow_symlinks_specified(const char *function_name, int follow_symlinks)
-{
-    if (follow_symlinks)
-        return 0;
-
-    argument_unavailable_error(function_name, "follow_symlinks");
-    return 1;
-}
-
-/*
-static int
-path_and_dir_fd_invalid(const char *function_name, path_t *path, int dir_fd)
-{
-    if (!path->wide && (dir_fd != DEFAULT_DIR_FD)
-#ifndef MS_WINDOWS
-        && !path->narrow
-#endif
-    ) {
-        PyErr_Format(PyExc_ValueError,
-                     "%s: can't specify dir_fd without matching path",
-                     function_name);
-        return 1;
-    }
-    return 0;
-}
-
-static int
-dir_fd_and_fd_invalid(const char *function_name, int dir_fd, int fd)
-{
-    if ((dir_fd != DEFAULT_DIR_FD) && (fd != -1)) {
-        PyErr_Format(PyExc_ValueError,
-                     "%s: can't specify both dir_fd and fd",
-                     function_name);
-        return 1;
-    }
-    return 0;
-}
-
-static int
-fd_and_follow_symlinks_invalid(const char *function_name, int fd,
-                               int follow_symlinks)
-{
-    if ((fd > 0) && (!follow_symlinks)) {
-        PyErr_Format(PyExc_ValueError,
-                     "%s: cannot use fd and follow_symlinks together",
-                     function_name);
-        return 1;
-    }
-    return 0;
-}
-*/
-
-static int
-dir_fd_and_follow_symlinks_invalid(const char *function_name, int dir_fd,
-                                   int follow_symlinks)
-{
-    if ((dir_fd != DEFAULT_DIR_FD) && (!follow_symlinks)) {
-        PyErr_Format(PyExc_ValueError,
-                     "%s: cannot use dir_fd and follow_symlinks together",
-                     function_name);
-        return 1;
-    }
-    return 0;
-}
-
-/*
-#ifdef MS_WINDOWS
-    typedef long long Py_off_t;
-#else
-    typedef off_t Py_off_t;
-#endif
-
-static int
-Py_off_t_converter(PyObject *arg, void *addr)
-{
-#ifdef HAVE_LARGEFILE_SUPPORT
-    *((Py_off_t *)addr) = PyLong_AsLongLong(arg);
-#else
-    *((Py_off_t *)addr) = PyLong_AsLong(arg);
-#endif
-    if (PyErr_Occurred())
-        return 0;
-    return 1;
-}
-
-static PyObject *
-PyLong_FromPy_off_t(Py_off_t offset)
-{
-#ifdef HAVE_LARGEFILE_SUPPORT
-    return PyLong_FromLongLong(offset);
-#else
-    return PyLong_FromLong(offset);
-#endif
-}
-*/
-
-#ifdef MS_WINDOWS
-
-static int
-win32_get_reparse_tag(HANDLE reparse_point_handle, ULONG *reparse_tag)
-{
-    char target_buffer[_Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
-    _Py_REPARSE_DATA_BUFFER *rdb = (_Py_REPARSE_DATA_BUFFER *)target_buffer;
-    DWORD n_bytes_returned;
-
-    if (0 == DeviceIoControl(
-        reparse_point_handle,
-        FSCTL_GET_REPARSE_POINT,
-        NULL, 0, /* in buffer */
-        target_buffer, sizeof(target_buffer),
-        &n_bytes_returned,
-        NULL)) /* we're not using OVERLAPPED_IO */
-        return FALSE;
-
-    if (reparse_tag)
-        *reparse_tag = rdb->ReparseTag;
-
-    return TRUE;
-}
-
-#endif /* MS_WINDOWS */
-
-/* Set a POSIX-specific error from errno, and return NULL */
-
-/*
-static PyObject *
-posix_error(void)
-{
-    return PyErr_SetFromErrno(PyExc_OSError);
-}
-*/
-
-#ifdef MS_WINDOWS
-static PyObject *
-win32_error(const char* function, const char* filename)
-{
-    /* XXX We should pass the function name along in the future.
-       (winreg.c also wants to pass the function name.)
-       This would however require an additional param to the
-       Windows error object, which is non-trivial.
-    */
-    errno = GetLastError();
-    if (filename)
-        return PyErr_SetFromWindowsErrWithFilename(errno, filename);
-    else
-        return PyErr_SetFromWindowsErr(errno);
-}
-
-static PyObject *
-win32_error_object_err(const char* function, PyObject* filename, DWORD err)
-{
-    /* XXX - see win32_error for comments on 'function' */
-    if (filename)
-        return PyErr_SetExcFromWindowsErrWithFilenameObject(
-                    PyExc_OSError,
-                    err,
-                    filename);
-    else
-        return PyErr_SetFromWindowsErr(err);
-}
-
-static PyObject *
-win32_error_object(const char* function, PyObject* filename)
-{
-    errno = GetLastError();
-    return win32_error_object_err(function, filename, errno);
-}
-
-#endif /* MS_WINDOWS */
-
 static PyObject *
 posix_path_object_error(PyObject *path)
 {
@@ -1090,63 +909,13 @@ path_object_error(PyObject *path)
 #endif
 }
 
-/*
-static PyObject *
-path_object_error2(PyObject *path, PyObject *path2)
-{
-#ifdef MS_WINDOWS
-    return PyErr_SetExcFromWindowsErrWithFilenameObjects(
-                PyExc_OSError, 0, path, path2);
-#else
-    return PyErr_SetFromErrnoWithFilenameObjects(PyExc_OSError, path, path2);
-#endif
-}
-*/
-
 static PyObject *
 path_error(path_t *path)
 {
     return path_object_error(path->object);
 }
 
-/*
-static PyObject *
-posix_path_error(path_t *path)
-{
-    return posix_path_object_error(path->object);
-}
-*/
-
-/*
-static PyObject *
-path_error2(path_t *path, path_t *path2)
-{
-    return path_object_error2(path->object, path2->object);
-}
-*/
-
-
 /* POSIX generic methods */
-
-/*
-static PyObject *
-posix_fildes_fd(int fd, int (*func)(int))
-{
-    int res;
-    int async_err = 0;
-
-    do {
-        Py_BEGIN_ALLOW_THREADS
-        //_Py_BEGIN_SUPPRESS_IPH
-        res = (*func)(fd);
-        //_Py_END_SUPPRESS_IPH
-        Py_END_ALLOW_THREADS
-    } while (res != 0 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
-    if (res != 0)
-        return (!async_err) ? posix_error() : NULL;
-    Py_RETURN_NONE;
-}
-*/
 
 #ifdef MS_WINDOWS
 /* The CRT of Windows has a number of flaws wrt. its stat() implementation:
@@ -2716,22 +2485,6 @@ static PyMethodDef scanwalk_methods[] = {
     {NULL,              NULL}            /* Sentinel */
 };
 
-/*
-static int
-all_ins(PyObject *m)
-{
-    return 0;
-}
-*/
-
-static const struct have_function {
-    const char * const label;
-    int (*probe)(void);
-} have_functions[] = {
-    { NULL, NULL }
-};
-
-
 static int
 scanwalkmodule_exec(PyObject *m)
 {
@@ -2781,33 +2534,9 @@ scanwalkmodule_exec(PyObject *m)
     /* suppress "function not used" warnings */
     {
     int ignored;
-    fd_specified("", -1);
-    follow_symlinks_specified("", 1);
-    dir_fd_and_follow_symlinks_invalid("chmod", DEFAULT_DIR_FD, 1);
     dir_fd_converter(Py_None, &ignored);
     dir_fd_unavailable(Py_None, &ignored);
     }
-
-    /*
-     * provide list of locally available functions
-     * so os.py can populate support_* lists
-     */
-    PyObject *list = PyList_New(0);
-    if (!list) {
-        return -1;
-    }
-    for (const struct have_function *trace = have_functions; trace->label; trace++) {
-        PyObject *unicode;
-        if (trace->probe && !trace->probe()) continue;
-        unicode = PyUnicode_DecodeASCII(trace->label, strlen(trace->label), NULL);
-        if (!unicode)
-            return -1;
-        if (PyList_Append(list, unicode))
-            return -1;
-        Py_DECREF(unicode);
-    }
-
-    PyModule_AddObject(m, "_have_functions", list);
 
     return 0;
 }

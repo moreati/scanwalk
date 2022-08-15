@@ -6,32 +6,36 @@ It's an alternative to `os.walk()` modelled on `os.scandir()`.
 
 ```pycon
 >>> import scanwalk
->>> for entry in scanwalk.walk('data/demo'):
-...     print(entry.path, entry.name, entry.is_dir(), entry.is_file())
+>>> for entry in scanwalk.walk('demo'):
+...     print('📁' if entry.is_dir() else '📄', entry.path)
 ...
-data/demo demo True False
-data/demo/adir adir True False
-data/demo/adir/anotherfile anotherfile False True
-data/demo/adir/anotherdir anotherdir True False
-data/demo/afile afile False True
+📁 demo
+📁 demo/dir2
+📁 demo/dir1
+📁 demo/dir1/dir1.1
+📄 demo/dir1/dir1.1/file_a
+📄 demo/dir1/file_c
+📁 demo/dir1/dir1.2
+📄 demo/dir1/dir1.2/file_b
 ```
 
 a rough equivalent with `os.walk()` would be
 
 ```pycon
 >>> import os
->>> for parent, dirs, files in os.walk('data/demo'):
-...     print(parent, name, True, False)
-...     for name in dirs:
-...         print(os.path.join(parent, name), name, True, False)
-...     for name in files:
-...         print(os.path.join(parent, name), name, False, True)
+>>> for parent, dirnames, filenames in os.walk('demo'):
+...     print('📁', parent)
+...     for name in filenames:
+...         print('📄', os.path.join(parent, name))
 ...
-data/demo demo True False
-data/demo/adir adir True False
-data/demo/afile afile False True
-data/demo/adir/anotherdir anotherdir True False
-data/demo/adir/anotherfile anotherfile False True
+📁 demo
+📁 demo/dir2
+📁 demo/dir1
+📄 demo/dir1/file_c
+📁 demo/dir1/dir1.1
+📄 demo/dir1/dir1.1/file_a
+📁 demo/dir1/dir1.2
+📄 demo/dir1/dir1.2/file_b
 ```
 
 Notable features and differences between `scanwalk.walk()` and `os.walk()`

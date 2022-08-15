@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+import dataclasses
+import os
+import shutil
+import string
+
+import pyperf
+
+import scanwalk
+
+
+@dataclasses.dataclass
+class Candidate:
+    name: str
+    stmt: str
+    globals: dict
+
+
+def setup(top):
+    try:
+        shutil.rmtree(top)
+    except FileNotFoundError:
+        pass
+    os.mkdir(top)
+    dirs = []
+    dirnames = set(string.ascii_lowercase)
+    filenames = [f'f{i}' for i in range(10)]
+    try:
+        dirs.append(os.getcwd())
+        os.chdir(top)
+        for l1 in dirnames:
+            os.mkdir(l1)
+            dirs.append(os.getcwd())
+            os.chdir(l1)
+            for fname in filenames:
+                with open(fname, 'wb') as f: pass
+
+            for l2 in dirnames:
+                os.mkdir(l2)
+                dirs.append(os.getcwd())
+                os.chdir(l2)
+                for fname in filenames:
+                    with open(fname, 'wb') as f: pass
+
+                for l3 in dirnames:
+                    os.mkdir(l3)
+                    dirs.append(os.getcwd())
+                    os.chdir(l3)
+                    for fname in filenames:
+                        with open(fname, 'wb') as f: pass
+                    os.chdir(dirs.pop())
+                os.chdir(dirs.pop())
+            os.chdir(dirs.pop())
+    finally:
+        os.chdir(dirs[0])
+
+
+def os_walk_tally(top):
+    for _, _, files in os.walk(top):
+        yield 1
+        for f in files:
+            yield 1
+
+
+if __name__ == '__main__':
+    runner = pyperf.Runner()
+    workdir = '/tmp/src'
+    repetitions = 1
+    setup(workdir)
+
+    candidates = [
+        Candidate(
+            'os.walk',
+            'sum(os_walk_tally(workdir))',
+            {'os_walk_tally': os_walk_tally, 'workdir': workdir},
+        ),
+        Candidate(
+            'scanwalk.walk',
+            'sum(1 for e in scanwalk.walk(workdir))',
+            {'scanwalk': scanwalk, 'workdir': workdir},
+        ),
+    ]
+
+    for c in candidates:
+        runner.timeit(name=c.name, stmt=c.stmt, globals=c.globals)

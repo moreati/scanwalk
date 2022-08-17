@@ -6,13 +6,15 @@ from typing import AnyStr
 from typing import Generator
 from typing import Union
 
+import _scanwalk
 
 class FakeDirEntry(os.PathLike):
     '''
     A stand-in for os.DirEntry, that can be instantiated directly.
     '''
-    def __init__(self, path:os.PathLike):
+    def __init__(self, path:os.PathLike, skip:bool=False):
         self.path = path
+        self.skip = skip
 
     @property
     def name(self) -> AnyStr:
@@ -37,10 +39,10 @@ class FakeDirEntry(os.PathLike):
         return os.fspath(self.path)
 
     def __repr__(self) -> str:
-        return f'<{self.__class__.__name__} {self.path!r}>'
+        return f'<{self.__class__.__name__} {self.path!r} skip={self.skip}>'
 
 
-WalkGenerator = Generator[Union[os.DirEntry, FakeDirEntry], None, None]
+WalkGenerator = Generator[Union[_scanwalk.DirEntry, FakeDirEntry], None, None]
 
 
 def walk(top:os.PathLike, *, follow_symlinks:bool=False) -> WalkGenerator:
@@ -51,7 +53,7 @@ def walk(top:os.PathLike, *, follow_symlinks:bool=False) -> WalkGenerator:
     It aims to be a faster alternative to `os.walk()`. It uses `os.scandir()`
     output directly, avoiding intermediate lists and sort operations.
     """
-    if not isinstance(top, (os.DirEntry, FakeDirEntry)):
+    if not isinstance(top, (_scanwalk.DirEntry, FakeDirEntry)):
         yield FakeDirEntry(top)
     else:
         yield top
@@ -59,10 +61,10 @@ def walk(top:os.PathLike, *, follow_symlinks:bool=False) -> WalkGenerator:
 
 
 def _walk(path:os.PathLike, *, follow_symlinks:bool=False) -> WalkGenerator:
-    with os.scandir(path) as it:
+    with _scanwalk.scandir(path) as it:
         for entry in it:
-            skip = yield entry
-            if skip:
+            yield entry
+            if entry.skip:
                 continue
             if entry.is_dir(follow_symlinks=follow_symlinks):
                 yield from _walk(entry)

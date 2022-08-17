@@ -1,11 +1,4 @@
-/* POSIX module implementation */
-
-/* This file is also used for Windows NT/MS-Win.  In that case the
-   module actually calls itself 'nt', not 'posix', and a few
-   functions are either unimplemented or implemented differently.  The source
-   assumes that for Windows NT, the macro 'MS_WINDOWS' is defined independent
-   of the compiler used.  Different compilers define their own feature
-   test macro, e.g. '_MSC_VER'. */
+/* _scanwalk module implementation */
 
 #define PY_SSIZE_T_CLEAN
 
@@ -157,7 +150,7 @@
 extern "C" {
 #endif
 
-PyDoc_STRVAR(posix__doc__,
+PyDoc_STRVAR(_scanwalk__doc__,
 "This module provides scandir() and supportting data structures.");
 
 #ifdef HAVE_FCNTL_H
@@ -523,15 +516,15 @@ typedef struct {
     PyObject *ScandirIteratorType;
     PyObject *StatResultType;
     PyObject *st_mode;
-} _posixstate;
+} _scanwalkstate;
 
 
-static inline _posixstate*
-get_posix_state(PyObject *module)
+static inline _scanwalkstate*
+get_scanwalk_state(PyObject *module)
 {
     void *state = PyModule_GetState(module);
     assert(state != NULL);
-    return (_posixstate *)state;
+    return (_scanwalkstate *)state;
 }
 
 /*
@@ -1441,65 +1434,6 @@ win32_stat(const wchar_t* path, struct _Py_stat_struct *result)
 
 #endif /* MS_WINDOWS */
 
-PyDoc_STRVAR(stat_result__doc__,
-"stat_result: Result from stat, fstat, or lstat.\n\n\
-This object may be accessed either as a tuple of\n\
-  (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime)\n\
-or via the attributes st_mode, st_ino, st_dev, st_nlink, st_uid, and so on.\n\
-\n\
-Posix/windows: If your platform supports st_blksize, st_blocks, st_rdev,\n\
-or st_flags, they are available as attributes only.\n\
-\n\
-See os.stat for more information.");
-
-static PyStructSequence_Field stat_result_fields[] = {
-    {"st_mode",    "protection bits"},
-    {"st_ino",     "inode"},
-    {"st_dev",     "device"},
-    {"st_nlink",   "number of hard links"},
-    {"st_uid",     "user ID of owner"},
-    {"st_gid",     "group ID of owner"},
-    {"st_size",    "total size, in bytes"},
-    /* The NULL is replaced with PyStructSequence_UnnamedField later. */
-    {NULL,   "integer time of last access"},
-    {NULL,   "integer time of last modification"},
-    {NULL,   "integer time of last change"},
-    {"st_atime",   "time of last access"},
-    {"st_mtime",   "time of last modification"},
-    {"st_ctime",   "time of last change"},
-    {"st_atime_ns",   "time of last access in nanoseconds"},
-    {"st_mtime_ns",   "time of last modification in nanoseconds"},
-    {"st_ctime_ns",   "time of last change in nanoseconds"},
-#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
-    {"st_blksize", "blocksize for filesystem I/O"},
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_BLOCKS
-    {"st_blocks",  "number of blocks allocated"},
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_RDEV
-    {"st_rdev",    "device type (if inode device)"},
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_FLAGS
-    {"st_flags",   "user defined flags for file"},
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_GEN
-    {"st_gen",    "generation number"},
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_BIRTHTIME
-    {"st_birthtime",   "time of creation"},
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_FILE_ATTRIBUTES
-    {"st_file_attributes", "Windows file attribute bits"},
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_FSTYPE
-    {"st_fstype",  "Type of filesystem"},
-#endif
-#ifdef HAVE_STRUCT_STAT_ST_REPARSE_TAG
-    {"st_reparse_tag", "Windows reparse tag"},
-#endif
-    {0}
-};
-
 #ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
 #define ST_BLKSIZE_IDX 16
 #else
@@ -1554,41 +1488,10 @@ static PyStructSequence_Field stat_result_fields[] = {
 #define ST_REPARSE_TAG_IDX ST_FSTYPE_IDX
 #endif
 
-static PyStructSequence_Desc stat_result_desc = {
-    "stat_result", /* name */
-    stat_result__doc__, /* doc */
-    stat_result_fields,
-    10
-};
-
-static newfunc structseq_new;
-
-static PyObject *
-statresult_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-    PyStructSequence *result;
-    int i;
-
-    result = (PyStructSequence*)structseq_new(type, args, kwds);
-    if (!result)
-        return NULL;
-    /* If we have been initialized from a tuple,
-       st_?time might be set to None. Initialize it
-       from the int slots.  */
-    for (i = 7; i <= 9; i++) {
-        if (result->ob_item[i+3] == Py_None) {
-            Py_DECREF(Py_None);
-            Py_INCREF(result->ob_item[i]);
-            result->ob_item[i+3] = result->ob_item[i];
-        }
-    }
-    return (PyObject*)result;
-}
-
 static int
-_posix_clear(PyObject *module)
+_scanwalk_clear(PyObject *module)
 {
-    _posixstate *state = get_posix_state(module);
+    _scanwalkstate *state = get_scanwalk_state(module);
     Py_CLEAR(state->billion);
     Py_CLEAR(state->DirEntryType);
     Py_CLEAR(state->ScandirIteratorType);
@@ -1598,23 +1501,21 @@ _posix_clear(PyObject *module)
 }
 
 static int
-_posix_traverse(PyObject *module, visitproc visit, void *arg)
+_scanwalk_traverse(PyObject *module, visitproc visit, void *arg)
 {
-    _posixstate *state = get_posix_state(module);
+    _scanwalkstate *state = get_scanwalk_state(module);
     Py_VISIT(state->billion);
     Py_VISIT(state->DirEntryType);
     Py_VISIT(state->ScandirIteratorType);
-#if defined(HAVE_SCHED_SETPARAM) || defined(HAVE_SCHED_SETSCHEDULER) || defined(POSIX_SPAWN_SETSCHEDULER) || defined(POSIX_SPAWN_SETSCHEDPARAM)
-    Py_VISIT(state->SchedParamType);
-#endif
     Py_VISIT(state->StatResultType);
+    Py_VISIT(state->st_mode);
     return 0;
 }
 
 static void
-_posix_free(void *module)
+_scanwalk_free(void *module)
 {
-   _posix_clear((PyObject *)module);
+   _scanwalk_clear((PyObject *)module);
 }
 
 static void
@@ -1629,7 +1530,7 @@ fill_time(PyObject *module, PyObject *v, int index, time_t sec, unsigned long ns
     if (!(s && ns_fractional))
         goto exit;
 
-    s_in_ns = PyNumber_Multiply(s, get_posix_state(module)->billion);
+    s_in_ns = PyNumber_Multiply(s, get_scanwalk_state(module)->billion);
     if (!s_in_ns)
         goto exit;
 
@@ -1662,7 +1563,7 @@ static PyObject*
 _pystat_fromstructstat(PyObject *module, STRUCT_STAT *st)
 {
     unsigned long ansec, mnsec, cnsec;
-    PyObject *StatResultType = get_posix_state(module)->StatResultType;
+    PyObject *StatResultType = get_scanwalk_state(module)->StatResultType;
     PyObject *v = PyStructSequence_New((PyTypeObject *)StatResultType);
     if (v == NULL)
         return NULL;
@@ -2076,7 +1977,7 @@ DirEntry_test_mode(PyTypeObject *defining_class, DirEntry *self,
             }
             goto error;
         }
-        _posixstate* state = get_posix_state(PyType_GetModule(defining_class));
+        _scanwalkstate* state = get_scanwalk_state(PyType_GetModule(defining_class));
         st_mode = PyObject_GetAttr(stat, state->st_mode);
         if (!st_mode)
             goto error;
@@ -2196,7 +2097,7 @@ os_DirEntry_inode_impl(DirEntry *self)
 static PyObject *
 DirEntry_repr(DirEntry *self)
 {
-    return PyUnicode_FromFormat("<DirEntry %R>", self->name);
+    return PyUnicode_FromFormat("<DirEntry %R skip=%R>", self->name, self->skip);
 }
 
 /*[clinic input]
@@ -2298,7 +2199,7 @@ DirEntry_from_find_data(PyObject *module, path_t *path, WIN32_FIND_DATAW *dataW)
     ULONG reparse_tag;
     wchar_t *joined_path;
 
-    PyObject *DirEntryType = get_posix_state(module)->DirEntryType;
+    PyObject *DirEntryType = get_scanwalk_state(module)->DirEntryType;
     entry = PyObject_New(DirEntry, (PyTypeObject *)DirEntryType);
     if (!entry)
         return NULL;
@@ -2388,7 +2289,7 @@ DirEntry_from_posix_info(PyObject *module, path_t *path, const char *name,
     DirEntry *entry;
     char *joined_path;
 
-    PyObject *DirEntryType = get_posix_state(module)->DirEntryType;
+    PyObject *DirEntryType = get_scanwalk_state(module)->DirEntryType;
     entry = PyObject_New(DirEntry, (PyTypeObject *)DirEntryType);
     if (!entry)
         return NULL;
@@ -2726,7 +2627,7 @@ os_scandir_impl(PyObject *module, path_t *path)
         return NULL;
     }
 
-    PyObject *ScandirIteratorType = get_posix_state(module)->ScandirIteratorType;
+    PyObject *ScandirIteratorType = get_scanwalk_state(module)->ScandirIteratorType;
     iterator = PyObject_New(ScandirIterator, (PyTypeObject *)ScandirIteratorType);
     if (!iterator)
         return NULL;
@@ -2810,7 +2711,7 @@ error:
     return NULL;
 }
 
-static PyMethodDef posix_methods[] = {
+static PyMethodDef scanwalk_methods[] = {
     OS_SCANDIR_METHODDEF
     {NULL,              NULL}            /* Sentinel */
 };
@@ -2832,23 +2733,19 @@ static const struct have_function {
 
 
 static int
-posixmodule_exec(PyObject *m)
+scanwalkmodule_exec(PyObject *m)
 {
-    _posixstate *state = get_posix_state(m);
+    _scanwalkstate *state = get_scanwalk_state(m);
 
-    stat_result_desc.name = "os.stat_result"; /* see issue #19209 */
-    //stat_result_desc.fields[7].name = PyStructSequence_UnnamedField;
-    //stat_result_desc.fields[8].name = PyStructSequence_UnnamedField;
-    //stat_result_desc.fields[9].name = PyStructSequence_UnnamedField;
-    PyObject *StatResultType = (PyObject *)PyStructSequence_NewType(&stat_result_desc);
+    PyObject *os_module = PyImport_ImportModule("os");
+    if (os_module == NULL) {
+        return -1;
+    }
+    PyObject *StatResultType = PyObject_GetAttrString(os_module, "stat_result");
     if (StatResultType == NULL) {
         return -1;
     }
-    Py_INCREF(StatResultType);
-    PyModule_AddObject(m, "stat_result", StatResultType);
     state->StatResultType = StatResultType;
-    structseq_new = ((PyTypeObject *)StatResultType)->tp_new;
-    ((PyTypeObject *)StatResultType)->tp_new = statresult_new;
 
 #ifdef NEED_TICKS_PER_SECOND
 #  if defined(HAVE_SYSCONF) && defined(_SC_CLK_TCK)
@@ -2916,27 +2813,27 @@ posixmodule_exec(PyObject *m)
 }
 
 
-static PyModuleDef_Slot posixmodile_slots[] = {
-    {Py_mod_exec, posixmodule_exec},
+static PyModuleDef_Slot scanwalkmodile_slots[] = {
+    {Py_mod_exec, scanwalkmodule_exec},
     {0, NULL}
 };
 
-static struct PyModuleDef posixmodule = {
+static struct PyModuleDef scanwalkmodule = {
     PyModuleDef_HEAD_INIT,
     .m_name = MODNAME,
-    .m_doc = posix__doc__,
-    .m_size = sizeof(_posixstate),
-    .m_methods = posix_methods,
-    .m_slots = posixmodile_slots,
-    .m_traverse = _posix_traverse,
-    .m_clear = _posix_clear,
-    .m_free = _posix_free,
+    .m_doc = _scanwalk__doc__,
+    .m_size = sizeof(_scanwalkstate),
+    .m_methods = scanwalk_methods,
+    .m_slots = scanwalkmodile_slots,
+    .m_traverse = _scanwalk_traverse,
+    .m_clear = _scanwalk_clear,
+    .m_free = _scanwalk_free,
 };
 
 PyMODINIT_FUNC
 INITFUNC(void)
 {
-    return PyModuleDef_Init(&posixmodule);
+    return PyModuleDef_Init(&scanwalkmodule);
 }
 
 #ifdef __cplusplus

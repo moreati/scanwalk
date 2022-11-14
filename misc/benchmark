@@ -4,15 +4,18 @@ import dataclasses
 import os
 import shutil
 import string
+import sys
+import timeit
 
-import pyperf
+#import pyperf
 
-import scanwalk
+#import scanwalk
 
 
 @dataclasses.dataclass
 class Candidate:
     name: str
+    setup: str
     stmt: str
     globals: dict
 
@@ -56,7 +59,7 @@ def setup(top):
         os.chdir(dirs[0])
 
 
-def os_walk_tally(top):
+def os_walk_tally(top='.'):
     for _, _, files in os.walk(top):
         yield 1
         for f in files:
@@ -64,23 +67,50 @@ def os_walk_tally(top):
 
 
 if __name__ == '__main__':
-    runner = pyperf.Runner()
+    #runner = pyperf.Runner()
     workdir = '/tmp/src'
-    repetitions = 1
-    setup(workdir)
+    #setup(workdir)
 
     candidates = [
         Candidate(
             'os.walk',
-            'sum(os_walk_tally(workdir))',
-            {'os_walk_tally': os_walk_tally, 'workdir': workdir},
+            'os.chdir(workdir)',
+            'sum(os_walk_tally())',
+            {'os': os, 'os_walk_tally': os_walk_tally, 'workdir': workdir},
         ),
-        Candidate(
-            'scanwalk.walk',
-            'sum(1 for e in scanwalk.walk(workdir))',
-            {'scanwalk': scanwalk, 'workdir': workdir},
-        ),
+        #Candidate(
+        #    'scanwalk.walk',
+        #    'os.chdir(workdir)',
+        #    'sum(1 for e in scanwalk.walk())',
+        #    {'os': os, 'scanwalk': scanwalk, 'workdir': workdir},
+        #),
     ]
 
     for c in candidates:
-        runner.timeit(name=c.name, stmt=c.stmt, globals=c.globals)
+        #runner.timeit(name=c.name, setup=c.setup, stmt=c.stmt, globals=c.globals)
+        print(c.name)
+        exec(f'{c.setup};i={c.stmt};print(i)', c.globals)
+        sys.exit()
+        timer = timeit.Timer(stmt=c.stmt, setup=c.setup, globals=c.globals)
+        number = timer.autorange()[0]*10
+        print(number)
+        print(timer.timeit(number))
+
+# ➜  cpython git:(direntry-skip) ✗ ./python.exe ~/src/scanwalk/misc/benchmark
+# os.walk with scandir()
+# 200_000
+# 3.421438582940027
+
+# (venv) ➜  cpython git:(main) ✗ ~/src/scanwalk/misc/benchmark 
+# .....................
+# os.walk: Mean +- std dev: 357 ms +- 8 ms
+# .....................
+# WARNING: the benchmark result may be unstable
+# * the standard deviation (3.78 us) is 18% of the mean (21.1 us)
+# 
+# Try to rerun the benchmark with more runs, values and/or loops.
+# Run 'python3 -m pyperf system tune' command to reduce the system jitter.
+# Use pyperf stats, pyperf dump and pyperf hist to analyze results.
+# Use --quiet option to hide these warnings.
+# 
+# scanwalk.walk: Mean +- std dev: 21.1 us +- 3.8 us

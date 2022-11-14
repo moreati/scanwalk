@@ -2124,10 +2124,9 @@ typedef struct {
     WIN32_FIND_DATAW file_data;
     int first_time;
 #else /* POSIX */
-    DIR *dirp;
-#endif
-#ifdef HAVE_FDOPENDIR
-    int fd;
+    struct dirent **namelist;
+    int count;
+    int index;
 #endif
 } ScandirIterator;
 
@@ -2202,25 +2201,25 @@ ScandirIterator_iternext(ScandirIterator *iterator)
 static int
 ScandirIterator_is_closed(ScandirIterator *iterator)
 {
-    return !iterator->dirp;
+    return !iterator->namelist;
 }
 
 static void
 ScandirIterator_closedir(ScandirIterator *iterator)
 {
-    DIR *dirp = iterator->dirp;
+    struct dirent **namelist = iterator->namelist;
 
-    if (!dirp)
+    if (!namelist) {
         return;
+    }
 
-    iterator->dirp = NULL;
-    Py_BEGIN_ALLOW_THREADS
-#ifdef HAVE_FDOPENDIR
-    if (iterator->path.fd != -1)
-        rewinddir(dirp);
-#endif
-    closedir(dirp);
-    Py_END_ALLOW_THREADS
+    iterator->namelist = NULL;
+
+    for (int i=0; i<iterator->count; i++) {
+        free(namelist[i]);
+    }
+
+    free(namelist);
     return;
 }
 
@@ -2229,47 +2228,33 @@ ScandirIterator_iternext(ScandirIterator *iterator)
 {
     struct dirent *direntp;
     Py_ssize_t name_len;
-    int is_dot;
     PyObject *entry;
 
     /* Happens if the iterator is iterated twice, or closed explicitly */
-    if (!iterator->dirp)
+    if (!iterator->namelist) {
         return NULL;
-
-    while (1) {
-        errno = 0;
-        Py_BEGIN_ALLOW_THREADS
-        direntp = readdir(iterator->dirp);
-        Py_END_ALLOW_THREADS
-
-        if (!direntp) {
-            /* Error or no more files */
-            if (errno != 0)
-                path_error(&iterator->path);
-            break;
-        }
-
-        /* Skip over . and .. */
-        name_len = NAMLEN(direntp);
-        is_dot = direntp->d_name[0] == '.' &&
-                 (name_len == 1 || (direntp->d_name[1] == '.' && name_len == 2));
-        if (!is_dot) {
-            PyObject *module = PyType_GetModule(Py_TYPE(iterator));
-            entry = DirEntry_from_posix_info(module,
-                                             &iterator->path, direntp->d_name,
-                                             name_len, direntp->d_ino
-#ifdef HAVE_DIRENT_D_TYPE
-                                             , direntp->d_type
-#endif
-                                            );
-            if (!entry)
-                break;
-            return entry;
-        }
-
-        /* Loop till we get a non-dot directory or finish iterating */
     }
 
+    if (iterator->index >= iterator->count) {
+        goto cleanup;
+    }
+
+    direntp = iterator->namelist[iterator->index++];
+    name_len = NAMLEN(direntp);
+    PyObject *module = PyType_GetModule(Py_TYPE(iterator));
+    entry = DirEntry_from_posix_info(module,
+                                     &iterator->path, direntp->d_name,
+                                     name_len, direntp->d_ino
+#ifdef HAVE_DIRENT_D_TYPE
+                                     , direntp->d_type
+#endif
+                                     );
+    if (!entry) {
+        goto cleanup;
+    }
+    return entry;
+
+cleanup:
     /* Error or no more files */
     ScandirIterator_closedir(iterator);
     return NULL;
@@ -2363,6 +2348,19 @@ static PyType_Spec ScandirIteratorType_spec = {
     ScandirIteratorType_slots
 };
 
+int scandir_filter(const struct dirent *direntp) {
+    Py_ssize_t name_len;
+    int is_dot;
+    /* Skip over . and .. */
+    name_len = NAMLEN(direntp);
+    is_dot = direntp->d_name[0] == '.' &&
+             (name_len == 1 || (direntp->d_name[1] == '.' && name_len == 2));
+    if (is_dot) {
+        return 0;
+    }
+    return 1;
+}
+
 /*[clinic input]
 os.scandir
 
@@ -2386,9 +2384,6 @@ os_scandir_impl(PyObject *module, path_t *path)
     wchar_t *path_strW;
 #else
     const char *path_str;
-#ifdef HAVE_FDOPENDIR
-    int fd = -1;
-#endif
 #endif
 
     if (PySys_Audit("os.scandir", "O",
@@ -2404,7 +2399,7 @@ os_scandir_impl(PyObject *module, path_t *path)
 #ifdef MS_WINDOWS
     iterator->handle = INVALID_HANDLE_VALUE;
 #else
-    iterator->dirp = NULL;
+    iterator->namelist = NULL;
 #endif
 
     /* Move the ownership to iterator->path */
@@ -2430,25 +2425,6 @@ os_scandir_impl(PyObject *module, path_t *path)
     }
 #else /* POSIX */
     errno = 0;
-#ifdef HAVE_FDOPENDIR
-    if (iterator->path.fd != -1) {
-      if (HAVE_FDOPENDIR_RUNTIME) {
-        /* closedir() closes the FD, so we duplicate it */
-        fd = _Py_dup(iterator->path.fd);
-        if (fd == -1)
-            goto error;
-
-        Py_BEGIN_ALLOW_THREADS
-        iterator->dirp = fdopendir(fd);
-        Py_END_ALLOW_THREADS
-      } else {
-        PyErr_SetString(PyExc_TypeError,
-            "scandir: path should be string, bytes, os.PathLike or None, not int");
-        return NULL;
-      }
-    }
-    else
-#endif
     {
         if (iterator->path.narrow)
             path_str = iterator->path.narrow;
@@ -2456,19 +2432,12 @@ os_scandir_impl(PyObject *module, path_t *path)
             path_str = ".";
 
         Py_BEGIN_ALLOW_THREADS
-        iterator->dirp = opendir(path_str);
+        iterator->count = scandir(path_str, &iterator->namelist, scandir_filter, NULL);
         Py_END_ALLOW_THREADS
     }
 
-    if (!iterator->dirp) {
+    if (!iterator->count < 0) {
         path_error(&iterator->path);
-#ifdef HAVE_FDOPENDIR
-        if (fd != -1) {
-            Py_BEGIN_ALLOW_THREADS
-            close(fd);
-            Py_END_ALLOW_THREADS
-        }
-#endif
         goto error;
     }
 #endif

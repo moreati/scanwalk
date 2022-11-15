@@ -27,7 +27,7 @@ class FakeDirEntry(os.PathLike):
     def is_file(self, *, follow_symlinks:bool=True) -> bool:
         return stat.S_ISREG(self.stat(follow_symlinks=follow_symlinks).st_mode)
 
-    def is_symlink(self):
+    def is_symlink(self) -> bool:
         return stat.S_ISLNK(self.stat(follow_symlinks=False).st_mode)
 
     def stat(self, *, follow_symlinks:bool=True) -> os.stat_result:

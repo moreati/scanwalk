@@ -38,6 +38,24 @@ a rough equivalent using `os.walk()` would be
 📄 demo/dir1/dir1.2/file_b
 ```
 
+to skip the contents of a directory set the `DireEntry.skip` attribute
+
+```pycon
+>>> import scanwalk
+>>> for entry in scanwalk.walk('demo'):
+...     if entry.name == 'dir1.1':
+...         entry.skip = True
+...     else:
+...         print(entry.path)
+...
+demo
+demo/dir2
+demo/dir1
+demo/dir1/file_c
+demo/dir1/dir1.2
+demo/dir1/dir1.2/file_b
+```
+
 ## Comparison
 
 |             | `os.walk()`                          | `scanwalk.walk()`                                  |
@@ -85,7 +103,6 @@ It only supports newer Pythons, on platforms with a working `os.scandir()`.
 `scanwalk.walk()` behaviour differs from `os.walk()`
 - directories and files are intermingled, rather than seperated
 - Traversal is always semi depth-first
-- there's no way to skip directories (WIP)
 
 ## Related work
 
@@ -94,7 +111,6 @@ It only supports newer Pythons, on platforms with a working `os.scandir()`.
 
 ## TODO
 
-- Expose directory skip mechanism, probably `generator.send()`
 - Implement context manager protocol, similar to `os.scandir()`
 - Documentation
 - Tests

@@ -7,12 +7,48 @@ from typing import Generator
 from typing import Union
 
 
+class DirEntry(os.PathLike):
+    def __init__(self, direntry):
+        self._direntry = direntry
+        self.skip = False
+
+    @property
+    def name(self) -> AnyStr:
+        return self._direntry.name
+
+    @property
+    def path(self) -> os.PathLike:
+        return self._direntry.path
+
+    def inode(self) -> int:
+        return self._direntry.inode(follow_symlinks=False)
+
+    def is_dir(self, *, follow_symlinks:bool=True) -> bool:
+        return self._direntry.is_dir(follow_symlinks=follow_symlinks)
+
+    def is_file(self, *, follow_symlinks:bool=True) -> bool:
+        return self._direntry.is_file(follow_symlinks=follow_symlinks)
+
+    def is_symlink(self) -> bool:
+        return self._direntry.is_symlink()
+
+    def stat(self, *, follow_symlinks:bool=True) -> os.stat_result:
+        return self._direntry.stat(follow_symlinks=follow_symlinks)
+
+    def __fspath__(self) -> AnyStr:
+        return self._direntry.__fspath__()
+
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__name__} {self.path!r}>'
+
+
 class FakeDirEntry(os.PathLike):
     '''
     A stand-in for os.DirEntry, that can be instantiated directly.
     '''
     def __init__(self, path:os.PathLike):
         self.path = path
+        self.skip = False
 
     @property
     def name(self) -> AnyStr:
@@ -51,24 +87,28 @@ def walk(top:os.PathLike, *, follow_symlinks:bool=False) -> WalkGenerator:
     It aims to be a faster alternative to `os.walk()`. It uses `os.scandir()`
     output directly, avoiding intermediate lists and sort operations.
     """
-    if not isinstance(top, (os.DirEntry, FakeDirEntry)):
-        yield FakeDirEntry(top)
-    else:
+    if isinstance(top, (DirEntry, FakeDirEntry)):
         yield top
+    elif isinstance(top, os.DirEntry):
+        yield DirEntry(top)
+    else:
+        yield FakeDirEntry(top)
     yield from _walk(top, follow_symlinks=follow_symlinks)
 
 
 def _walk(path:os.PathLike, *, follow_symlinks:bool=False) -> WalkGenerator:
     with os.scandir(path) as it:
         for entry in it:
-            skip = yield entry
-            if skip:
+            entry = DirEntry(entry)
+            yield entry
+            if entry.skip:
                 continue
             if entry.is_dir(follow_symlinks=follow_symlinks):
                 yield from _walk(entry)
 
 
 __all__ = (
+    DirEntry.__name__,
     FakeDirEntry.__name__,
     walk.__name__,
 )

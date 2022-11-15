@@ -19,7 +19,7 @@ It's an alternative to `os.walk()` modelled on `os.scandir()`.
 📄 demo/dir1/dir1.2/file_b
 ```
 
-a rough equivalent with `os.walk()` would be
+a rough equivalent using `os.walk()` would be
 
 ```pycon
 >>> import os
@@ -38,12 +38,12 @@ a rough equivalent with `os.walk()` would be
 📄 demo/dir1/dir1.2/file_b
 ```
 
-Notable features and differences between `scanwalk.walk()` and `os.walk()`
+## Comparison
 
 |             | `os.walk()`                          | `scanwalk.walk()`                                  |
 |-------------|--------------------------------------|----------------------------------------------------|
 | Yields      | `(dirpath, dirnames, filenames)`     | `DirEntry` objects                                 |
-| Consumers   | Nested `for` loops                   | `for` loop, generator expression, or comprehension |
+| Consumers   | Nested `for` loops                   | Flat `for` loop, list comprehension, or generator expression |
 | Grouping    | Directories & files seperated        | Directories & files intermingled                   |
 | Traversal   | Depth first or breadth first         | Semi depth first, directories traversed on arrival |
 | Exceptions  | `onerror()` callback                 | `try`/`except` block                               |
@@ -70,21 +70,21 @@ MIT
 
 ### What's wrong with `os.walk()`?
 
-`scanwalk.walk()` isn't better or worse then `os.walk()`, each has tradeoffs.
-`os.walk()` is fine for most use cases, if you're happy with it then carry on.
+`os.walk()` is plenty good enough, it's just an awkward return type to use
+inside a list comprehension, a generator expression, or similar.
 
 ### Why use `scanwalk`?
 `scanwalk.walk()` eeks out a little more speed (10-20% in an adhoc benchmark).
-It doesn't require nested for loops, so code is easier to read and write.
+It doesn't require nested for loops, so code is a bit easier to read and write.
 In particular list comprehensions  and generator expressions become simpler.
 
 ### Why not use `scanwalk`?
 `scanwalk` is still alpha, mostly untested, and almost entirely undocumented.
 It only supports newer Pythons, on platforms with a working `os.scandir()`.
 
-`scanwalk.walk()` lacks features compared to `os.walk()`
-- directories and files are intermingled
-- Traversal is always semi depth-first (e.g. depth first, breadth first)
+`scanwalk.walk()` behaviour differs from `os.walk()`
+- directories and files are intermingled, rather than seperated
+- Traversal is always semi depth-first
 - there's no way to skip directories (WIP)
 
 ## Related work
